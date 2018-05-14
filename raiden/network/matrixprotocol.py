@@ -83,8 +83,8 @@ class RaidenMatrixProtocol:
 
     def start(self):
         # password is signed server address
-        password = data_encoder(signing.sign(self._server_name.encode(), self.raiden.private_key))
-        seed = int.from_bytes(signing.sign(b'seed', self.raiden.private_key)[-32:], 'big')
+        password = data_encoder(self._sign(self._server_name.encode()))
+        seed = int.from_bytes(self._sign(b'seed')[-32:], 'big')
         rand = Random()  # deterministic, random secret for username suffixes
         rand.seed(seed)
         # try login and register on first 5 possible accounts
@@ -135,13 +135,7 @@ class RaidenMatrixProtocol:
             'home_server': self.client.hs,
         }
 
-        name = data_encoder(
-            signing.sign(
-                user['user_id'].encode(),
-                self.raiden.private_key,
-                hasher=eth_sign_sha3
-            )
-        )
+        name = data_encoder(self._sign(user['user_id'].encode()))
         self.client.get_user(user['user_id']).set_display_name(name)
 
         default_rooms = self.raiden.config['matrix']['default_rooms']
@@ -483,6 +477,14 @@ class RaidenMatrixProtocol:
     @staticmethod
     def _address_from_user_id(user_id):
         return address_decoder(user_id.partition(':')[0].replace('@', ''))
+
+    def _sign(self, data: bytes) -> bytes:
+        """Use eth_sign compatible hasher to sign matrix data"""
+        return signing.sign(
+            data,
+            self.raiden.private_key,
+            hasher=eth_sign_sha3
+        )
 
 
 def _validate_userid_signature(user: User) -> bool:
