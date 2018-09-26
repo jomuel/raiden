@@ -4,7 +4,6 @@ from raiden.transfer import channel, secret_registry
 from raiden.transfer.architecture import TransitionResult
 from raiden.transfer.events import EventPaymentReceivedSuccess, SendProcessed
 from raiden.transfer.mediated_transfer.events import (
-    CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
     EventUnlockClaimFailed,
     EventUnlockClaimSuccess,
     SendSecretRequest,
@@ -121,7 +120,7 @@ def handle_inittarget(
             recipient = transfer.initiator
             secret_request = SendSecretRequest(
                 recipient=recipient,
-                channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+                channel_unique_identifier=channel_state.unique_id,
                 message_identifier=message_identifier,
                 payment_identifier=transfer.payment_identifier,
                 amount=transfer.lock.amount,
@@ -194,7 +193,7 @@ def handle_secretreveal(
         # the transport and not by the state machine
         reveal = SendSecretReveal(
             recipient=recipient,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=message_identifier,
             secret=target_state.secret,
         )
@@ -239,7 +238,7 @@ def handle_unlock(
 
         send_processed = SendProcessed(
             recipient=balance_proof_sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=state_change.message_identifier,
         )
 

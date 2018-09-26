@@ -166,12 +166,18 @@ def subdispatch_to_paymenttask(
             )
 
             if token_network_state:
+                payer_channel_unique_ids = mediator.get_payer_channel_unique_ids(
+                    chain_state,
+                    token_network_state,
+                    sub_task.mediator_state,
+                )
                 sub_iteration = mediator.state_transition(
                     sub_task.mediator_state,
                     state_change,
                     token_network_state.channelidentifiers_to_channels,
                     pseudo_random_generator,
                     block_number,
+                    payer_channel_unique_ids,
                 )
                 events = sub_iteration.events
 
@@ -285,12 +291,18 @@ def subdispatch_mediatortask(
         )
 
         pseudo_random_generator = chain_state.pseudo_random_generator
+        payer_channel_unique_ids = mediator.get_payer_channel_unique_ids(
+            chain_state,
+            token_network_state,
+            mediator_state,
+        )
         iteration = mediator.state_transition(
             mediator_state,
             state_change,
             token_network_state.channelidentifiers_to_channels,
             pseudo_random_generator,
             block_number,
+            payer_channel_unique_ids,
         )
         events = iteration.events
 

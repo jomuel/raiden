@@ -9,6 +9,7 @@ from raiden.transfer.architecture import (
 )
 from raiden.transfer.state import BalanceProofSignedState, BalanceProofUnsignedState
 from raiden.utils import pex, serialization, sha3, typing
+from raiden.utils.typing import ChannelUniqueID
 
 # pylint: disable=too-many-arguments,too-few-public-methods
 
@@ -589,14 +590,14 @@ class SendDirectTransfer(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             payment_identifier: typing.PaymentID,
             balance_proof: BalanceProofUnsignedState,
             token_address: typing.TokenAddress,
     ):
 
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier)
 
         self.payment_identifier = payment_identifier
         self.balance_proof = balance_proof
@@ -631,7 +632,7 @@ class SendDirectTransfer(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'payment_identifier': self.payment_identifier,
             'balance_proof': self.balance_proof,
@@ -644,9 +645,10 @@ class SendDirectTransfer(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendDirectTransfer':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             payment_identifier=data['payment_identifier'],
             balance_proof=data['balance_proof'],
@@ -657,6 +659,14 @@ class SendDirectTransfer(SendMessageEvent):
 
 
 class SendProcessed(SendMessageEvent):
+    def __init__(
+            self,
+            recipient: typing.Address,
+            channel_unique_identifier: typing.ChannelUniqueID,
+            message_identifier: typing.MessageID,
+    ):
+        super().__init__(recipient, channel_unique_identifier, message_identifier, ordered=True)
+
     def __repr__(self):
         return (
             '<SendProcessed confirmed_msgid:{} recipient:{}>'
@@ -677,7 +687,7 @@ class SendProcessed(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
         }
 
@@ -685,9 +695,10 @@ class SendProcessed(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendProcessed':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
         )
 

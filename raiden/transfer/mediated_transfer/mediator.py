@@ -3,11 +3,10 @@ import random
 from typing import Dict, List
 
 from raiden.constants import MAXIMUM_PENDING_TRANSFERS
-from raiden.transfer import channel, secret_registry
+from raiden.transfer import channel, secret_registry, views
 from raiden.transfer.architecture import TransitionResult
 from raiden.transfer.events import ContractSendChannelBatchUnlock, SendProcessed
 from raiden.transfer.mediated_transfer.events import (
-    CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
     EventUnlockClaimFailed,
     EventUnlockClaimSuccess,
     EventUnlockFailed,
@@ -503,7 +502,12 @@ def events_for_refund_transfer(
     return list()
 
 
-def events_for_revealsecret(transfers_pair, secret, pseudo_random_generator):
+def events_for_revealsecret(
+        payer_channel_unique_ids,
+        transfers_pair,
+        secret,
+        pseudo_random_generator,
+):
     """ Reveal the secret backwards.
 
     This node is named N, suppose there is a mediated transfer with two refund
@@ -524,7 +528,7 @@ def events_for_revealsecret(transfers_pair, secret, pseudo_random_generator):
     won't lose tokens since it knows the secret can go on-chain at any time.
     """
     events = list()
-    for pair in reversed(transfers_pair):
+    for pair, payer_id in zip(reversed(transfers_pair), reversed(payer_channel_unique_ids)):
         payee_secret = pair.payee_state in STATE_SECRET_KNOWN
         payer_secret = pair.payer_state in STATE_SECRET_KNOWN
         should_send_secret = pair.payer_state == 'payer_pending'
@@ -535,7 +539,7 @@ def events_for_revealsecret(transfers_pair, secret, pseudo_random_generator):
             payer_transfer = pair.payer_transfer
             revealsecret = SendSecretReveal(
                 recipient=payer_transfer.balance_proof.sender,
-                channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+                channel_unique_identifier=payer_id,
                 message_identifier=message_identifier,
                 secret=secret,
             )
@@ -731,6 +735,7 @@ def secret_learned(
         payee_address,
         new_payee_state,
         from_onchain_secretreveal,
+        payer_channel_unique_ids,
 ):
     """ Set the state of the `payee_address` transfer, check the secret is
     being revealed backwards, and if necessary send out RevealSecret,
@@ -774,6 +779,7 @@ def secret_learned(
     )
 
     secret_reveal = events_for_revealsecret(
+        payer_channel_unique_ids,
         state.transfers_pair,
         secret,
         pseudo_random_generator,
@@ -1003,6 +1009,7 @@ def handle_secretreveal(
         mediator_state,
         mediator_state_change,
         channelidentifiers_to_channels,
+        channel_unique_ids,
         pseudo_random_generator,
         block_number,
 ):
@@ -1031,6 +1038,7 @@ def handle_secretreveal(
             mediator_state_change.sender,
             'payee_secret_revealed',
             isinstance(mediator_state_change, ContractReceiveSecretReveal),
+            channel_unique_ids,
         )
 
     else:
@@ -1065,7 +1073,7 @@ def handle_unlock(mediator_state, state_change: ReceiveUnlock, channelidentifier
 
                     send_processed = SendProcessed(
                         recipient=balance_proof_sender,
-                        channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+                        channel_unique_identifier=channel_state.unique_id,
                         message_identifier=state_change.message_identifier,
                     )
                     events.append(send_processed)
@@ -1098,12 +1106,31 @@ def handle_lock_expired(
     return TransitionResult(mediator_state, events)
 
 
+def get_payer_channel_unique_ids(chain_state, token_network_state, mediator_state):
+    channel_unique_ids = list()
+    if mediator_state is not None:
+        payment_network_id = views.get_payment_network_id_by_token_network_id(
+            chain_state,
+            token_network_state.address,
+        )
+        for i in range(len(mediator_state.transfers_pair)):
+            channel_state = views.get_channelstate_for(
+                chain_state,
+                payment_network_id,
+                token_network_state.token_address,
+                mediator_state.transfers_pair[i].payer_address,
+            )
+            channel_unique_ids.append(channel_state.unique_id)
+    return channel_unique_ids
+
+
 def state_transition(
         mediator_state,
         state_change,
         channelidentifiers_to_channels,
         pseudo_random_generator,
         block_number,
+        payer_channel_unique_ids,
 ):
     """ State machine for a node mediating a transfer. """
     # pylint: disable=too-many-branches
@@ -1141,20 +1168,12 @@ def state_transition(
             block_number,
         )
 
-    elif isinstance(state_change, ReceiveSecretReveal):
+    elif isinstance(state_change, (ReceiveSecretReveal, ContractReceiveSecretReveal)):
         iteration = handle_secretreveal(
             mediator_state,
             state_change,
             channelidentifiers_to_channels,
-            pseudo_random_generator,
-            block_number,
-        )
-
-    elif isinstance(state_change, ContractReceiveSecretReveal):
-        iteration = handle_secretreveal(
-            mediator_state,
-            state_change,
-            channelidentifiers_to_channels,
+            payer_channel_unique_ids,
             pseudo_random_generator,
             block_number,
         )

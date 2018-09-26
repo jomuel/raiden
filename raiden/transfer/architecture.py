@@ -6,11 +6,10 @@ from raiden.utils.typing import (
     Address,
     BlockExpiration,
     BlockNumber,
-    ChannelID,
+    ChannelUniqueID,
     List,
     MessageID,
     T_BlockNumber,
-    T_ChannelID,
     TransactionHash,
 )
 
@@ -105,31 +104,33 @@ class SendMessageEvent(Event):
     def __init__(
             self,
             recipient: Address,
-            channel_identifier: ChannelID,
+            channel_unique_identifier: ChannelUniqueID,
             message_identifier: MessageID,
+            ordered: bool = False,
     ):
-        # Note that here and only here channel identifier can also be 0 which stands
-        # for the identifier of no channel (i.e. the global queue)
-        if not isinstance(channel_identifier, T_ChannelID):
-            raise ValueError('channel identifier must be of type T_ChannelIdentifier')
+        if not isinstance(channel_unique_identifier, ChannelUniqueID):
+            raise ValueError('channel identifier must be of type ChannelUniqueID')
 
         self.recipient = recipient
-        self.queue_identifier = QueueIdentifier(
-            recipient=recipient,
-            channel_identifier=channel_identifier,
-        )
+        self.channel_unique_identifier = channel_unique_identifier
         self.message_identifier = message_identifier
+        self.ordered = ordered
 
     def __eq__(self, other):
         return (
             isinstance(other, SendMessageEvent) and
             self.recipient == other.recipient and
-            self.queue_identifier == other.queue_identifier and
-            self.message_identifier == other.message_identifier
+            self.channel_unique_identifier == other.channel_unique_identifier and
+            self.message_identifier == other.message_identifier and
+            self.ordered == other.ordered
         )
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    @property
+    def queue_identifier(self) -> QueueIdentifier:
+        return QueueIdentifier(self.recipient, self.channel_unique_identifier.channel_id)
 
 
 class ContractSendEvent(Event):

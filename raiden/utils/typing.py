@@ -1,6 +1,8 @@
 from typing import *  # NOQA pylint:disable=wildcard-import,unused-wildcard-import
 from typing import Any, Dict, List, NamedTuple, NewType, Optional, Tuple, Union
 
+from eth_utils import to_bytes, to_hex
+
 T_Address = bytes
 Address = NewType('Address', T_Address)
 
@@ -127,13 +129,18 @@ class ChannelUniqueID(NamedTuple):
         return self.channel_id == channel_id
 
     def to_dict(self) -> Dict[str, Any]:
-        return dict(self._asdict())  # pylint: disable=no-member
+        return {
+            'chain_id': self.chain_id,
+            'payment_network_id': to_hex(self.payment_network_id),
+            'token_address': to_hex(self.token_address),
+            'channel_id': self.channel_id,
+        }
 
     @classmethod
     def from_dict(cls, data) -> 'ChannelUniqueID':
         return cls(
             chain_id=data['chain_id'],
-            payment_network_id=data['payment_network_id'],
-            token_address=data['token_address'],
+            payment_network_id=to_bytes(hexstr=data['payment_network_id']),
+            token_address=to_bytes(hexstr=data['token_address']),
             channel_id=data['channel_id'],
         )

@@ -5,6 +5,7 @@ from raiden.transfer.architecture import Event, SendMessageEvent
 from raiden.transfer.mediated_transfer.state import LockedTransferUnsignedState
 from raiden.transfer.state import BalanceProofUnsignedState, HashTimeLockState
 from raiden.utils import pex, serialization, sha3, typing
+from raiden.utils.typing import ChannelUniqueID
 
 # According to the smart contracts as of 07/08:
 # https://github.com/raiden-network/raiden-contracts/blob/fff8646ebcf2c812f40891c2825e12ed03cc7628/raiden_contracts/contracts/TokenNetwork.sol#L213
@@ -18,7 +19,7 @@ def refund_from_sendmediated(send_lockedtransfer_event):
     transfer = send_lockedtransfer_event.transfer
     return SendRefundTransfer(
         recipient=send_lockedtransfer_event.recipient,
-        channel_identifier=send_lockedtransfer_event.queue_identifier.channel_identifier,
+        channel_unique_identifier=send_lockedtransfer_event.channel_unique_identifier,
         message_identifier=send_lockedtransfer_event.message_identifier,
         payment_identifier=transfer.payment_identifier,
         token_address=transfer.token,
@@ -34,10 +35,11 @@ class SendLockExpired(SendMessageEvent):
             self,
             recipient: typing.Address,
             message_identifier: typing.MessageID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             balance_proof: BalanceProofUnsignedState,
             secrethash: typing.SecretHash,
     ):
-        super().__init__(recipient, balance_proof.channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier)
 
         self.balance_proof = balance_proof
         self.secrethash = secrethash
@@ -54,6 +56,7 @@ class SendLockExpired(SendMessageEvent):
         return (
             isinstance(other, SendLockExpired) and
             self.message_identifier == other.message_identifier and
+            self.channel_unique_identifier == other.channel_unique_identifier and
             self.balance_proof == other.balance_proof and
             self.secrethash == other.secrethash and
             self.recipient == other.recipient
@@ -65,6 +68,7 @@ class SendLockExpired(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'message_identifier': self.message_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'balance_proof': self.balance_proof,
             'balance_hash': serialization.serialize_bytes(self.balance_proof.balance_hash),
             'secrethash': serialization.serialize_bytes(self.secrethash),
@@ -75,9 +79,11 @@ class SendLockExpired(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendLockExpired':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
             message_identifier=data['message_identifier'],
+            channel_unique_identifier=channel_unique_id,
             balance_proof=data['balance_proof'],
             secrethash=serialization.deserialize_bytes(data['secrethash']),
         )
@@ -91,14 +97,14 @@ class SendLockedTransfer(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             transfer: LockedTransferUnsignedState,
     ):
         if not isinstance(transfer, LockedTransferUnsignedState):
             raise ValueError('transfer must be a LockedTransferUnsignedState instance')
 
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier)
 
         self.transfer = transfer
 
@@ -126,7 +132,7 @@ class SendLockedTransfer(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'transfer': self.transfer,
             'balance_proof': self.transfer.balance_proof,
@@ -139,9 +145,10 @@ class SendLockedTransfer(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendLockedTransfer':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             transfer=data['transfer'],
         )
@@ -181,13 +188,13 @@ class SendSecretReveal(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             secret: typing.Secret,
     ):
         secrethash = sha3(secret)
 
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier, ordered=True)
 
         self.secret = secret
         self.secrethash = secrethash
@@ -213,7 +220,7 @@ class SendSecretReveal(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'secret': serialization.serialize_bytes(self.secret),
         }
@@ -222,9 +229,10 @@ class SendSecretReveal(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendSecretReveal':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             secret=serialization.deserialize_bytes(data['secret']),
         )
@@ -253,14 +261,14 @@ class SendBalanceProof(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             payment_identifier: typing.PaymentID,
             token_address: typing.TokenAddress,
             secret: typing.Secret,
             balance_proof: BalanceProofUnsignedState,
     ):
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier)
 
         self.payment_identifier = payment_identifier
         self.token = token_address
@@ -300,7 +308,7 @@ class SendBalanceProof(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'payment_identifier': self.payment_identifier,
             'token_address': to_checksum_address(self.token),
@@ -313,9 +321,10 @@ class SendBalanceProof(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendBalanceProof':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             payment_identifier=data['payment_identifier'],
             token_address=to_canonical_address(data['token_address']),
@@ -334,7 +343,7 @@ class SendSecretRequest(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             payment_identifier: typing.PaymentID,
             amount: typing.TokenAmount,
@@ -342,7 +351,7 @@ class SendSecretRequest(SendMessageEvent):
             secrethash: typing.SecretHash,
     ):
 
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier, ordered=True)
 
         self.payment_identifier = payment_identifier
         self.amount = amount
@@ -380,7 +389,7 @@ class SendSecretRequest(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'payment_identifier': self.payment_identifier,
             'amount': self.amount,
@@ -392,9 +401,10 @@ class SendSecretRequest(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendSecretRequest':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             payment_identifier=data['payment_identifier'],
             amount=data['amount'],
@@ -415,7 +425,7 @@ class SendRefundTransfer(SendMessageEvent):
     def __init__(
             self,
             recipient: typing.Address,
-            channel_identifier: typing.ChannelID,
+            channel_unique_identifier: typing.ChannelUniqueID,
             message_identifier: typing.MessageID,
             payment_identifier: typing.PaymentID,
             token_address: typing.TokenAddress,
@@ -425,7 +435,7 @@ class SendRefundTransfer(SendMessageEvent):
             target: typing.TargetAddress,
     ):
 
-        super().__init__(recipient, channel_identifier, message_identifier)
+        super().__init__(recipient, channel_unique_identifier, message_identifier)
 
         self.payment_identifier = payment_identifier
         self.token = token_address
@@ -470,7 +480,7 @@ class SendRefundTransfer(SendMessageEvent):
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         result = {
             'recipient': to_checksum_address(self.recipient),
-            'channel_identifier': self.queue_identifier.channel_identifier,
+            'channel_unique_identifier': self.channel_unique_identifier.to_dict(),
             'message_identifier': self.message_identifier,
             'payment_identifier': self.payment_identifier,
             'token_address': to_checksum_address(self.token),
@@ -485,9 +495,10 @@ class SendRefundTransfer(SendMessageEvent):
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> 'SendRefundTransfer':
+        channel_unique_id = ChannelUniqueID.from_dict(data['channel_unique_identifier'])
         restored = cls(
             recipient=to_canonical_address(data['recipient']),
-            channel_identifier=data['channel_identifier'],
+            channel_unique_identifier=channel_unique_id,
             message_identifier=data['message_identifier'],
             payment_identifier=data['payment_identifier'],
             token_address=to_canonical_address(data['token_address']),

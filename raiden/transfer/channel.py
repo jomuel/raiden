@@ -22,7 +22,6 @@ from raiden.transfer.events import (
     SendProcessed,
 )
 from raiden.transfer.mediated_transfer.events import (
-    CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
     SendBalanceProof,
     SendLockedTransfer,
     SendLockExpired,
@@ -1117,7 +1116,7 @@ def create_senddirecttransfer(
 
     direct_transfer = SendDirectTransfer(
         recipient=recipient,
-        channel_identifier=channel_state.identifier,
+        channel_unique_identifier=channel_state.unique_id,
         message_identifier=message_identifier,
         payment_identifier=payment_identifier,
         balance_proof=balance_proof,
@@ -1196,7 +1195,7 @@ def create_sendlockedtransfer(
 
     lockedtransfer = SendLockedTransfer(
         recipient=recipient,
-        channel_identifier=channel_state.identifier,
+        channel_unique_identifier=channel_state.unique_id,
         message_identifier=message_identifier,
         transfer=locked_transfer,
     )
@@ -1248,7 +1247,7 @@ def create_unlock(
 
     unlock_lock = SendBalanceProof(
         recipient=recipient,
-        channel_identifier=channel_state.identifier,
+        channel_unique_identifier=channel_state.unique_id,
         message_identifier=message_identifier,
         payment_identifier=payment_identifier,
         token_address=token_address,
@@ -1428,6 +1427,7 @@ def events_for_expired_lock(
     return [SendLockExpired(
         recipient=channel_state.partner_state.address,
         message_identifier=message_identifier_from_prng(pseudo_random_generator),
+        channel_unique_identifier=channel_state.unique_id,
         balance_proof=balance_proof,
         secrethash=locked_lock.secrethash,
     )]
@@ -1672,7 +1672,7 @@ def handle_receive_directtransfer(
 
         send_processed = SendProcessed(
             recipient=direct_transfer.balance_proof.sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=direct_transfer.message_identifier,
         )
         events = [payment_received_success, send_processed]
@@ -1707,7 +1707,7 @@ def handle_refundtransfer(
 
         send_processed = SendProcessed(
             recipient=refund.transfer.balance_proof.sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=refund.transfer.message_identifier,
         )
         events = [send_processed]
@@ -1740,7 +1740,7 @@ def handle_receive_lock_expired(
         )
         send_processed = SendProcessed(
             recipient=state_change.balance_proof.sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=state_change.message_identifier,
         )
         events = [send_processed]
@@ -1775,7 +1775,7 @@ def handle_receive_lockedtransfer(
 
         send_processed = SendProcessed(
             recipient=mediated_transfer.balance_proof.sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=mediated_transfer.message_identifier,
         )
         events = [send_processed]
@@ -1807,7 +1807,7 @@ def handle_unlock(channel_state: NettingChannelState, unlock: ReceiveUnlock) -> 
 
         send_processed = SendProcessed(
             recipient=unlock.balance_proof.sender,
-            channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+            channel_unique_identifier=channel_state.unique_id,
             message_identifier=unlock.message_identifier,
         )
         events: typing.List[Event] = [send_processed]
