@@ -22,10 +22,7 @@ def test_delivered_message_must_clean_unordered_messages(chain_id):
         our_address,
         chain_id,
     )
-    queue_identifier = QueueIdentifier(
-        recipient,
-        events.CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
-    )
+    queue_identifier = QueueIdentifier(recipient, 1)
 
     # Regression test:
     # The code delivered_message handler worked only with a queue of one

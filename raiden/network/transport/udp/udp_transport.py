@@ -19,7 +19,6 @@ from raiden.network.transport.udp.udp_utils import (
 )
 from raiden.raiden_service import RaidenService
 from raiden.settings import CACHE_TTL
-from raiden.transfer.mediated_transfer.events import CHANNEL_IDENTIFIER_GLOBAL_QUEUE
 from raiden.transfer.queue_identifier import QueueIdentifier
 from raiden.transfer.state_change import ActionChangeNodeNetworkState, ReceiveDelivered
 from raiden.utils import pex, typing
@@ -330,12 +329,9 @@ class UDPTransport(Runnable):
             self.retry_interval * 10,
         )
 
-        if queue_identifier.channel_identifier == CHANNEL_IDENTIFIER_GLOBAL_QUEUE:
-            greenlet_queue.name = f'Queue for {pex(recipient)} - global'
-        else:
-            greenlet_queue.name = (
-                f'Queue for {pex(recipient)} - {queue_identifier.channel_identifier}'
-            )
+        greenlet_queue.name = (
+            f'Queue for {pex(recipient)} - {queue_identifier.channel_identifier}'
+        )
 
         greenlet_queue.link_exception(self.on_error)
         self.greenlets.append(greenlet_queue)

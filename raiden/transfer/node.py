@@ -17,7 +17,6 @@ from raiden.transfer.events import (
     SendDirectTransfer,
 )
 from raiden.transfer.mediated_transfer import initiator_manager, mediator, target
-from raiden.transfer.mediated_transfer.events import CHANNEL_IDENTIFIER_GLOBAL_QUEUE
 from raiden.transfer.mediated_transfer.state_change import (
     ActionInitInitiator,
     ActionInitMediator,
@@ -497,22 +496,18 @@ def handle_token_network_action(
 
 def handle_delivered(chain_state: ChainState, state_change: ReceiveDelivered) -> TransitionResult:
     # TODO: improve the complexity of this algorithm
-    queueids_to_remove = []
     for queueid, queue in chain_state.queueids_to_queues.items():
-        if queueid.channel_identifier == CHANNEL_IDENTIFIER_GLOBAL_QUEUE:
-            filtered_queue = [
-                message
-                for message in queue
-                if message.message_identifier != state_change.message_identifier
-            ]
 
-            if not filtered_queue:
-                queueids_to_remove.append(queueid)
-            else:
-                chain_state.queueids_to_queues[queueid] = filtered_queue
+        filtered_queue = [
+            message
+            for message in queue
+            if (
+                not message.ordered or
+                message.message_identifier != state_change.message_identifier
+            )
+        ]
 
-    for queueid in queueids_to_remove:
-        del chain_state.queueids_to_queues[queueid]
+        chain_state.queueids_to_queues[queueid] = filtered_queue
 
     return TransitionResult(chain_state, [])
 
