@@ -3,7 +3,6 @@ import random
 from raiden.tests.utils import factories
 from raiden.transfer import node, state, state_change
 from raiden.transfer.mediated_transfer import events
-from raiden.transfer.queue_identifier import QueueIdentifier
 
 
 def test_delivered_message_must_clean_unordered_messages(chain_id):
@@ -22,7 +21,6 @@ def test_delivered_message_must_clean_unordered_messages(chain_id):
         our_address,
         chain_id,
     )
-    queue_identifier = QueueIdentifier(recipient, 1)
 
     # Regression test:
     # The code delivered_message handler worked only with a queue of one
@@ -40,10 +38,10 @@ def test_delivered_message_must_clean_unordered_messages(chain_id):
         secret,
     )
 
-    chain_state.queueids_to_queues[queue_identifier] = [first_message, second_message]
+    chain_state.channels_to_queues[channel_unique_identifier] = [first_message, second_message]
     delivered_message = state_change.ReceiveDelivered(message_identifier)
 
     iteration = node.handle_delivered(chain_state, delivered_message)
-    new_queue = iteration.new_state.queueids_to_queues.get(queue_identifier, [])
+    new_queue = iteration.new_state.channels_to_queues.get(channel_unique_identifier, [])
 
     assert first_message not in new_queue

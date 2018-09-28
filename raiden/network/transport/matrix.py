@@ -46,12 +46,11 @@ from raiden.network.utils import get_http_rtt
 from raiden.raiden_service import RaidenService
 from raiden.storage.serialize import JSONSerializer
 from raiden.transfer import views
-from raiden.transfer.queue_identifier import QueueIdentifier
 from raiden.transfer.state import (
+    ChannelUniqueIDsToQueues,
     NODE_NETWORK_REACHABLE,
     NODE_NETWORK_UNKNOWN,
     NODE_NETWORK_UNREACHABLE,
-    QueueIdsToQueues,
 )
 from raiden.transfer.state_change import ActionChangeNodeNetworkState, ReceiveDelivered
 from raiden.utils import pex
@@ -60,6 +59,7 @@ from raiden.utils.typing import (
     Address,
     AddressHex,
     Callable,
+    ChannelUniqueID,
     Dict,
     Iterable,
     List,
@@ -260,25 +260,25 @@ class MatrixTransport(Runnable):
 
     def send_async(
         self,
-        queue_identifier: QueueIdentifier,
+        channel_unique_id: ChannelUniqueID,
         message: Message,
     ):
         if self._stop_event.ready():
             return
 
         message_id = message.message_identifier
-        receiver_address = queue_identifier.recipient
+        receiver_address = self._raiden_service.get_partner_address(channel_unique_id)
 
-        assert queue_identifier in self._queueids_to_queues
+        assert channel_unique_id in self._channels_to_queues
         message_in_queue = any(
             message_id == event.message_identifier
-            for event in self._queueids_to_queues[queue_identifier]
+            for event in self._channels_to_queues[channel_unique_id]
         )
         if not message_in_queue:
             self.log.warning(
                 'Message not in queue',
                 message=message,
-                queue=queue_identifier,
+                queue=channel_unique_id,
             )
 
         if not is_binary_address(receiver_address):
@@ -294,16 +294,16 @@ class MatrixTransport(Runnable):
             'Send async',
             receiver_address=pex(receiver_address),
             message=message,
-            queue_identifier=queue_identifier,
+            channel=channel_unique_id,
         )
 
         if isinstance(message, Processed):
-            self._send_immediate(queue_identifier, message)
+            self._send_immediate(receiver_address, message)
         else:
-            self._send_with_retry(queue_identifier, message)
+            self._send_with_retry(receiver_address, channel_unique_id, message)
 
     @property
-    def _queueids_to_queues(self) -> QueueIdsToQueues:
+    def _channels_to_queues(self) -> ChannelUniqueIDsToQueues:
         chain_state = views.state_from_raiden(self._raiden_service)
         return views.get_all_messagequeues(chain_state)
 
@@ -683,8 +683,8 @@ class MatrixTransport(Runnable):
     def _receive_delivered(self, delivered: Delivered):
         # FIXME: check if UDPTransport also checks Delivered sender and message presence
         # checks there's a respective message on sender's queue
-        for queue_identifier, events in self._queueids_to_queues.items():
-            if delivered.sender != queue_identifier.recipient:
+        for channel_unique_id, events in self._channels_to_queues.items():
+            if delivered.sender != self._raiden_service.get_partner_address(channel_unique_id):
                 continue
             if any(delivered.sender == event.recipient for event in events):
                 break
@@ -736,12 +736,12 @@ class MatrixTransport(Runnable):
 
     def _send_with_retry(
         self,
-        queue_identifier: QueueIdentifier,
+        receiver_address: Address,
+        channel_unique_id: ChannelUniqueID,
         message: Message,
     ):
         data = json.dumps(message.to_dict())
         message_id = message.message_identifier
-        receiver_address = queue_identifier.recipient
         reachable = {UserPresence.ONLINE, UserPresence.UNAVAILABLE}
 
         def retry():
@@ -760,25 +760,25 @@ class MatrixTransport(Runnable):
                         receiver=pex(receiver_address),
                         status=status,
                         message=message,
-                        queue=queue_identifier,
+                        queue=channel_unique_id,
                     )
                 # equivalent of gevent.sleep, but bails out when stopping
                 if self._stop_event.wait(delay):
                     break
                 # retry while our queue is valid
-                if queue_identifier not in self._queueids_to_queues:
+                if channel_unique_id not in self._channels_to_queues:
                     self.log.debug(
                         'Queue cleaned, stop retrying',
                         message=message,
-                        queue=queue_identifier,
-                        queueids_to_queues=self._queueids_to_queues,
+                        queue=channel_unique_id,
+                        channels_to_queues=self._channels_to_queues,
                     )
                     break
                 # retry while the message is in queue
                 # Delivered and Processed messages should eventually remove them
                 message_in_queue = any(
                     message_id == event.message_identifier
-                    for event in self._queueids_to_queues[queue_identifier]
+                    for event in self._channels_to_queues[channel_unique_id]
                 )
                 if not message_in_queue:
                     break
@@ -787,11 +787,10 @@ class MatrixTransport(Runnable):
 
     def _send_immediate(
         self,
-        queue_identifier: QueueIdentifier,
+        receiver_address: Address,
         message: Message,
     ):
         data = json.dumps(message.to_dict())
-        receiver_address = queue_identifier.recipient
 
         self._send_raw(receiver_address, data)
 

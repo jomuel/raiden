@@ -1,7 +1,6 @@
 # pylint: disable=too-few-public-methods
 from copy import deepcopy
 
-from raiden.transfer.queue_identifier import QueueIdentifier
 from raiden.utils.typing import (
     Address,
     BlockExpiration,
@@ -127,10 +126,6 @@ class SendMessageEvent(Event):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    @property
-    def queue_identifier(self) -> QueueIdentifier:
-        return QueueIdentifier(self.recipient, self.channel_unique_identifier.channel_id)
 
 
 class ContractSendEvent(Event):

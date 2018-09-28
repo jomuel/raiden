@@ -9,11 +9,11 @@ from raiden.transfer.state import (
     CHANNEL_STATE_UNUSABLE,
     NODE_NETWORK_UNKNOWN,
     ChainState,
+    ChannelUniqueIDsToQueues,
     InitiatorTask,
     MediatorTask,
     NettingChannelState,
     PaymentNetworkState,
-    QueueIdsToQueues,
     TargetTask,
     TokenNetworkState,
 )
@@ -77,8 +77,8 @@ def get_pending_transactions(chain_state: ChainState) -> typing.List[ContractSen
 
 def get_all_messagequeues(
         chain_state: ChainState,
-) -> QueueIdsToQueues:
-    return chain_state.queueids_to_queues
+) -> ChannelUniqueIDsToQueues:
+    return chain_state.channels_to_queues
 
 
 def get_networkstatuses(chain_state: ChainState) -> typing.Dict:
@@ -363,6 +363,19 @@ def get_channelstate_by_token_network_identifier(
         channel_state = token_network.channelidentifiers_to_channels.get(channel_id)
 
     return channel_state
+
+
+def get_partneraddress_by_unique_id(
+        chain_state: ChainState,
+        channel_unique_id: ChannelUniqueID,
+) -> typing.Optional[typing.Address]:
+
+    channel_state = get_channelstate_by_unique_id(chain_state, channel_unique_id)
+
+    if channel_state is None:
+        return None
+
+    return channel_state.partner_state.address
 
 
 def get_channelstate_by_id(

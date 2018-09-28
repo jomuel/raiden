@@ -19,7 +19,7 @@ from raiden.network.transport.udp.udp_utils import (
 )
 from raiden.raiden_service import RaidenService
 from raiden.settings import CACHE_TTL
-from raiden.transfer.queue_identifier import QueueIdentifier
+from raiden.transfer import views
 from raiden.transfer.state_change import ActionChangeNodeNetworkState, ReceiveDelivered
 from raiden.utils import pex, typing
 from raiden.utils.notifying_queue import NotifyingQueue
@@ -46,7 +46,7 @@ def single_queue_send(
         transport: 'UDPTransport',
         recipient: typing.Address,
         queue: Queue_T,
-        queue_identifier: QueueIdentifier,
+        channel_unique_id: typing.ChannelUniqueID,
         event_stop: Event,
         event_healthy: Event,
         event_unhealthy: Event,
@@ -83,7 +83,7 @@ def single_queue_send(
     log.debug(
         'queue: waiting for node to become healthy',
         node=pex(transport.raiden.address),
-        queue_identifier=queue_identifier,
+        queue=channel_unique_id,
         queue_size=len(queue),
     )
 
@@ -95,7 +95,7 @@ def single_queue_send(
     log.debug(
         'queue: processing queue',
         node=pex(transport.raiden.address),
-        queue_identifier=queue_identifier,
+        queue=channel_unique_id,
         queue_size=len(queue),
     )
 
@@ -106,7 +106,7 @@ def single_queue_send(
             log.debug(
                 'queue: stopping',
                 node=pex(transport.raiden.address),
-                queue_identifier=queue_identifier,
+                queue=channel_unique_id,
                 queue_size=len(queue),
             )
             return
@@ -120,7 +120,7 @@ def single_queue_send(
             node=pex(transport.raiden.address),
             recipient=pex(recipient),
             msgid=message_id,
-            queue_identifier=queue_identifier,
+            queue=channel_unique_id,
             queue_size=len(queue),
         )
 
@@ -161,7 +161,7 @@ class UDPTransport(Runnable):
     def __init__(self, discovery, udpsocket, throttle_policy, config):
         super().__init__()
         # these values are initialized by the start method
-        self.queueids_to_queues: typing.Dict
+        self.channels_to_queues: typing.Dict
         self.raiden: RaidenService
 
         self.discovery = discovery
@@ -204,7 +204,7 @@ class UDPTransport(Runnable):
 
         self.event_stop.clear()
         self.raiden = raiden
-        self.queueids_to_queues = dict()
+        self.channels_to_queues = dict()
 
         # server.stop() clears the handle. Since this may be a restart the
         # handle must always be set
@@ -300,18 +300,18 @@ class UDPTransport(Runnable):
 
     def init_queue_for(
             self,
-            queue_identifier: QueueIdentifier,
+            channel_unique_id: typing.ChannelUniqueID,
             items: typing.List[QueueItem_T],
     ) -> Queue_T:
-        """ Create the queue identified by the queue_identifier
+        """ Create the queue identified by the channel_unique_id
         and initialize it with `items`.
         """
-        recipient = queue_identifier.recipient
-        queue = self.queueids_to_queues.get(queue_identifier)
+        recipient = self.raiden.get_partner_address(channel_unique_id)
+        queue = self.channels_to_queues.get(channel_unique_id)
         assert queue is None
 
         queue = NotifyingQueue(items=items)
-        self.queueids_to_queues[queue_identifier] = queue
+        self.channels_to_queues[channel_unique_id] = queue
 
         events = self.get_health_events(recipient)
 
@@ -320,7 +320,7 @@ class UDPTransport(Runnable):
             self,
             recipient,
             queue,
-            queue_identifier,
+            channel_unique_id,
             self.event_stop,
             events.event_healthy,
             events.event_unhealthy,
@@ -330,7 +330,7 @@ class UDPTransport(Runnable):
         )
 
         greenlet_queue.name = (
-            f'Queue for {pex(recipient)} - {queue_identifier.channel_identifier}'
+            f'Queue for {pex(recipient)} - {channel_unique_id}'
         )
 
         greenlet_queue.link_exception(self.on_error)
@@ -339,7 +339,7 @@ class UDPTransport(Runnable):
         log.debug(
             'new queue created for',
             node=pex(self.raiden.address),
-            queue_identifier=queue_identifier,
+            channel=channel_unique_id,
             items_qty=len(items),
         )
 
@@ -347,30 +347,26 @@ class UDPTransport(Runnable):
 
     def get_queue_for(
             self,
-            queue_identifier: QueueIdentifier,
+            channel_unique_id: typing.ChannelUniqueID,
     ) -> Queue_T:
         """ Return the queue identified by the given queue identifier.
 
         If the queue doesn't exist it will be instantiated.
         """
-        queue = self.queueids_to_queues.get(queue_identifier)
+        queue = self.channels_to_queues.get(channel_unique_id)
 
         if queue is None:
             items = ()
-            queue = self.init_queue_for(queue_identifier, items)
+            queue = self.init_queue_for(channel_unique_id, items)
 
         return queue
 
     def send_async(
             self,
-            queue_identifier: QueueIdentifier,
+            channel_unique_id: typing.ChannelUniqueID,
             message: 'Message',
     ):
-        """ Send a new ordered message to recipient.
-
-        Messages that use the same `queue_identifier` are ordered.
-        """
-        recipient = queue_identifier.recipient
+        recipient = self.raiden.get_partner_address(channel_unique_id)
         if not is_binary_address(recipient):
             raise ValueError('Invalid address {}'.format(pex(recipient)))
 
@@ -391,14 +387,14 @@ class UDPTransport(Runnable):
         if message_id not in self.messageids_to_asyncresults:
             self.messageids_to_asyncresults[message_id] = AsyncResult()
 
-            queue = self.get_queue_for(queue_identifier)
+            queue = self.get_queue_for(channel_unique_id)
             queue.put((messagedata, message_id))
             assert queue.is_set()
 
             log.debug(
                 'Message queued',
                 node=pex(self.raiden.address),
-                queue_identifier=queue_identifier,
+                queue=channel_unique_id,
                 queue_size=len(queue),
                 message=message,
             )

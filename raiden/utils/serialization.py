@@ -111,16 +111,16 @@ def deserialize_merkletree_layers(data: typing.List[str]):
     return compute_layers(elements)
 
 
-def serialize_queueid_to_queue(data: typing.Dict):
-    # QueueId cannot be the key in a JSON dict, so make it a str
+def serialize_channeluniqueids_to_queues(data: typing.Dict):
+    # ChannelUniqueID cannot be a key in a JSON dict, so make it a str
     return {
-        str(queue_id): (queue_id, queue)
-        for queue_id, queue in data.items()
+        str(channel_unique_id): (channel_unique_id, queue)
+        for channel_unique_id, queue in data.items()
     }
 
 
-def deserialize_queueid_to_queue(data: typing.Dict):
+def deserialize_channeluniqueids_to_queues(data: typing.Dict):
     return {
-        queue_id: queue
-        for queue_id, queue in data.values()
+        channel_unique_id: queue
+        for channel_unique_id, queue in data.values()
     }

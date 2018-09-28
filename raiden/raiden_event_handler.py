@@ -105,7 +105,7 @@ class RaidenEventHandler:
         lock_expired_message = message_from_sendevent(send_lock_expired, raiden.address)
         raiden.sign(lock_expired_message)
         raiden.transport.send_async(
-            send_lock_expired.queue_identifier,
+            send_lock_expired.channel_unique_identifier,
             lock_expired_message,
         )
 
@@ -117,7 +117,7 @@ class RaidenEventHandler:
         mediated_transfer_message = message_from_sendevent(send_locked_transfer, raiden.address)
         raiden.sign(mediated_transfer_message)
         raiden.transport.send_async(
-            send_locked_transfer.queue_identifier,
+            send_locked_transfer.channel_unique_identifier,
             mediated_transfer_message,
         )
 
@@ -129,7 +129,7 @@ class RaidenEventHandler:
         direct_transfer_message = message_from_sendevent(send_direct_transfer, raiden.address)
         raiden.sign(direct_transfer_message)
         raiden.transport.send_async(
-            send_direct_transfer.queue_identifier,
+            send_direct_transfer.channel_unique_identifier,
             direct_transfer_message,
         )
 
@@ -141,7 +141,7 @@ class RaidenEventHandler:
         reveal_secret_message = message_from_sendevent(reveal_secret_event, raiden.address)
         raiden.sign(reveal_secret_message)
         raiden.transport.send_async(
-            reveal_secret_event.queue_identifier,
+            reveal_secret_event.channel_unique_identifier,
             reveal_secret_message,
         )
 
@@ -153,7 +153,7 @@ class RaidenEventHandler:
         secret_message = message_from_sendevent(balance_proof_event, raiden.address)
         raiden.sign(secret_message)
         raiden.transport.send_async(
-            balance_proof_event.queue_identifier,
+            balance_proof_event.channel_unique_identifier,
             secret_message,
         )
 
@@ -165,7 +165,7 @@ class RaidenEventHandler:
         secret_request_message = message_from_sendevent(secret_request_event, raiden.address)
         raiden.sign(secret_request_message)
         raiden.transport.send_async(
-            secret_request_event.queue_identifier,
+            secret_request_event.channel_unique_identifier,
             secret_request_message,
         )
 
@@ -177,7 +177,7 @@ class RaidenEventHandler:
         refund_transfer_message = message_from_sendevent(refund_transfer_event, raiden.address)
         raiden.sign(refund_transfer_message)
         raiden.transport.send_async(
-            refund_transfer_event.queue_identifier,
+            refund_transfer_event.channel_unique_identifier,
             refund_transfer_message,
         )
 
@@ -189,7 +189,7 @@ class RaidenEventHandler:
         processed_message = message_from_sendevent(processed_event, raiden.address)
         raiden.sign(processed_message)
         raiden.transport.send_async(
-            processed_event.queue_identifier,
+            processed_event.channel_unique_identifier,
             processed_message,
         )
 

@@ -12,7 +12,6 @@ from raiden.encoding import messages
 from raiden.encoding.format import buffer_for
 from raiden.transfer.architecture import SendMessageEvent, State
 from raiden.transfer.merkle_tree import merkleroot
-from raiden.transfer.queue_identifier import QueueIdentifier
 from raiden.transfer.utils import hash_balance_data, pseudo_random_generator_from_json
 from raiden.utils import lpex, pex, serialization, sha3, typing
 from raiden.utils.serialization import map_dict, map_list
@@ -20,7 +19,7 @@ from raiden.utils.typing import ChannelUniqueID
 
 SecretHashToLock = typing.Dict[typing.SecretHash, 'HashTimeLockState']
 SecretHashToPartialUnlockProof = typing.Dict[typing.SecretHash, 'UnlockPartialProofState']
-QueueIdsToQueues = typing.Dict[QueueIdentifier, typing.List[SendMessageEvent]]
+ChannelUniqueIDsToQueues = typing.Dict[ChannelUniqueID, typing.List[SendMessageEvent]]
 
 CHANNEL_STATE_CLOSED = 'closed'
 CHANNEL_STATE_CLOSING = 'waiting_for_close'
@@ -241,7 +240,7 @@ class ChainState(State):
         'payment_mapping',
         'pending_transactions',
         'pseudo_random_generator',
-        'queueids_to_queues',
+        'channels_to_queues',
     )
 
     def __init__(
@@ -265,7 +264,7 @@ class ChainState(State):
         self.payment_mapping = PaymentMappingState()
         self.pending_transactions = list()
         self.pseudo_random_generator = pseudo_random_generator
-        self.queueids_to_queues: QueueIdsToQueues = dict()
+        self.channels_to_queues: ChannelUniqueIDsToQueues = dict()
 
     def __repr__(self):
         return '<ChainState block:{} networks:{} qty_transfers:{} chain_id:{}>'.format(
@@ -280,7 +279,7 @@ class ChainState(State):
             isinstance(other, ChainState) and
             self.block_number == other.block_number and
             self.pseudo_random_generator.getstate() == other.pseudo_random_generator.getstate() and
-            self.queueids_to_queues == other.queueids_to_queues and
+            self.channels_to_queues == other.channels_to_queues and
             self.identifiers_to_paymentnetworks == other.identifiers_to_paymentnetworks and
             self.nodeaddresses_to_networkstates == other.nodeaddresses_to_networkstates and
             self.payment_mapping == other.payment_mapping and
@@ -308,8 +307,8 @@ class ChainState(State):
             'our_address': to_checksum_address(self.our_address),
             'payment_mapping': self.payment_mapping,
             'pending_transactions': self.pending_transactions,
-            'queueids_to_queues': serialization.serialize_queueid_to_queue(
-                self.queueids_to_queues,
+            'channels_to_queues': serialization.serialize_channeluniqueids_to_queues(
+                self.channels_to_queues,
             ),
         }
 
@@ -336,8 +335,8 @@ class ChainState(State):
         )
         restored.payment_mapping = data['payment_mapping']
         restored.pending_transactions = data['pending_transactions']
-        restored.queueids_to_queues = serialization.deserialize_queueid_to_queue(
-            data['queueids_to_queues'],
+        restored.channels_to_queues = serialization.deserialize_channeluniqueids_to_queues(
+            data['channels_to_queues'],
         )
 
         return restored

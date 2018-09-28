@@ -360,8 +360,8 @@ class RaidenService(Runnable):
         # after transport and alarm is started, send queued messages
         events_queues = views.get_all_messagequeues(chain_state)
 
-        for queue_identifier, event_queue in events_queues.items():
-            self.start_health_check_for(queue_identifier.recipient)
+        for unique_channel_id, event_queue in events_queues.items():
+            self.start_health_check_for(self.get_partner_address(unique_channel_id))
 
             # repopulate identifier_to_results for pending transfers
             for event in event_queue:
@@ -370,7 +370,7 @@ class RaidenService(Runnable):
 
                 message = message_from_sendevent(event, self.address)
                 self.sign(message)
-                self.transport.send_async(queue_identifier, message)
+                self.transport.send_async(unique_channel_id, message)
 
         # exceptions on these subtasks should crash the app and bubble up
         self.alarm.link_exception(self.on_error)
@@ -435,6 +435,12 @@ class RaidenService(Runnable):
 
     def get_block_number(self):
         return views.block_number(self.wal.state_manager.current_state)
+
+    def get_partner_address(self, channel_unique_id):
+        return views.get_partneraddress_by_unique_id(
+            views.state_from_raiden(self),
+            channel_unique_id,
+        )
 
     def handle_state_change(self, state_change):
         log.debug(

@@ -496,7 +496,7 @@ def handle_token_network_action(
 
 def handle_delivered(chain_state: ChainState, state_change: ReceiveDelivered) -> TransitionResult:
     # TODO: improve the complexity of this algorithm
-    for queueid, queue in chain_state.queueids_to_queues.items():
+    for channel_unique_id, queue in chain_state.channels_to_queues.items():
 
         filtered_queue = [
             message
@@ -507,7 +507,7 @@ def handle_delivered(chain_state: ChainState, state_change: ReceiveDelivered) ->
             )
         ]
 
-        chain_state.queueids_to_queues[queueid] = filtered_queue
+        chain_state.channels_to_queues[channel_unique_id] = filtered_queue
 
     return TransitionResult(chain_state, [])
 
@@ -687,8 +687,8 @@ def handle_processed(
 ) -> TransitionResult:
     # TODO: improve the complexity of this algorithm
     events = list()
-    queueids_to_remove = []
-    for queueid, queue in chain_state.queueids_to_queues.items():
+
+    for channel_unique_id, queue in chain_state.channels_to_queues.items():
         remove = []
 
         # TODO: ensure Processed message came from the correct peer
@@ -711,12 +711,6 @@ def handle_processed(
 
         for removepos in reversed(remove):
             queue.pop(removepos)
-
-        if not queue:
-            queueids_to_remove.append(queueid)
-
-    for queueid in queueids_to_remove:
-        del chain_state.queueids_to_queues[queueid]
 
     return TransitionResult(chain_state, events)
 
@@ -1119,7 +1113,7 @@ def update_queues(iteration: TransitionResult, state_change):
 
     for event in iteration.events:
         if isinstance(event, SendMessageEvent):
-            queue = chain_state.queueids_to_queues.setdefault(event.queue_identifier, [])
+            queue = chain_state.channels_to_queues.setdefault(event.channel_unique_identifier, [])
             queue.append(event)
 
         if isinstance(event, ContractSendEvent):
