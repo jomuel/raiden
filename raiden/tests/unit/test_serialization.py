@@ -7,9 +7,11 @@ from networkx import Graph
 from raiden.storage.serialize import JSONSerializer, RaidenJSONDecoder
 from raiden.tests.utils import factories
 from raiden.transfer import state, state_change
+from raiden.transfer.mediated_transfer.events import SendLockedTransfer
 from raiden.transfer.merkle_tree import compute_layers
 from raiden.transfer.state import EMPTY_MERKLE_TREE
 from raiden.utils import serialization
+from raiden.utils.typing import ChannelUniqueID
 
 
 class MockObject(object):
@@ -252,4 +254,27 @@ def test_chainstate_restore():
         JSONSerializer.serialize(original_obj),
     )
 
+    assert original_obj == decoded_obj
+
+
+def test_send_locked_transfer_restore():
+
+    payer = factories.make_address()
+    transfer = factories.make_transfer(
+        100,
+        factories.make_address(),
+        payer,
+        500,
+        factories.make_secret(1),
+    )
+    channel_unique_id = ChannelUniqueID(
+        337,
+        factories.make_address(),
+        factories.make_address(),
+        2,
+    )
+    original_obj = SendLockedTransfer(payer, channel_unique_id, 1, transfer)
+
+    encoded_obj = JSONSerializer.serialize(original_obj)
+    decoded_obj = JSONSerializer.deserialize(encoded_obj)
     assert original_obj == decoded_obj
