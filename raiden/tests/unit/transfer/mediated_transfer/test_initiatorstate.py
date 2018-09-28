@@ -21,7 +21,6 @@ from raiden.transfer import channel
 from raiden.transfer.events import EventPaymentSentFailed, EventPaymentSentSuccess
 from raiden.transfer.mediated_transfer import initiator, initiator_manager
 from raiden.transfer.mediated_transfer.events import (
-    CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
     EventUnlockFailed,
     EventUnlockSuccess,
     SendBalanceProof,
@@ -266,7 +265,7 @@ def test_state_wait_unlock_valid():
     # setup the state for the wait unlock
     current_state.initiator.revealsecret = SendSecretReveal(
         recipient=UNIT_TRANSFER_TARGET,
-        channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+        channel_unique_identifier=factories.make_unique_channel_id(),
         message_identifier=UNIT_TRANSFER_IDENTIFIER,
         secret=UNIT_SECRET,
     )
@@ -320,7 +319,7 @@ def test_state_wait_unlock_invalid():
     # setup the state for the wait unlock
     current_state.initiator.revealsecret = SendSecretReveal(
         recipient=target_address,
-        channel_identifier=CHANNEL_IDENTIFIER_GLOBAL_QUEUE,
+        channel_unique_identifier=factories.make_unique_channel_id(),
         message_identifier=identifier,
         secret=UNIT_SECRET,
     )

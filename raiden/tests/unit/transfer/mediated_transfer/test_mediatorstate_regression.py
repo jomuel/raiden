@@ -96,12 +96,15 @@ def test_payer_enter_danger_zone_with_transfer_payed():
         UNIT_SECRET,
         channel1.partner_state.address,
     )
+
+    payer_channel_unique_ids = [factories.make_unique_channel_id(channel_id=channel1.identifier)]
     paid_iteration = mediator.state_transition(
         new_state,
         receive_secret,
         channel_map,
         pseudo_random_generator,
         block_number,
+        payer_channel_unique_ids,
     )
     paid_state = paid_iteration.new_state
     assert paid_state.transfers_pair[0].payee_state == 'payee_balance_proof'

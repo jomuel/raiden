@@ -26,6 +26,7 @@ from raiden.transfer.state import (
 )
 from raiden.transfer.utils import hash_balance_data
 from raiden.utils import privatekey_to_address, publickey_to_address, random_secret, sha3
+from raiden.utils.typing import ChannelUniqueID
 from raiden_libs.utils.signing import eth_sign
 
 # prefixing with UNIT_ to differ from the default globals
@@ -413,3 +414,19 @@ def make_signed_transfer_for(
         assert is_valid, msg
 
     return mediated_transfer
+
+
+def make_unique_channel_id(
+        chain_id=UNIT_CHAIN_ID,
+        payment_network_id=UNIT_PAYMENT_NETWORK_IDENTIFIER,
+        token_address=UNIT_TOKEN_ADDRESS,
+        channel_id=None):
+
+    if channel_id is None:
+        channel_id = make_channel_identifier()
+
+    return ChannelUniqueID(chain_id, payment_network_id, token_address, channel_id)
+
+
+def make_unique_channel_id_list(length):
+    return [make_unique_channel_id() for _ in range(length)]

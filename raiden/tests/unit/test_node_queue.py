@@ -12,6 +12,7 @@ def test_delivered_message_must_clean_unordered_messages(chain_id):
     our_address = factories.make_address()
     recipient = factories.make_address()
     channel_identifier = 1
+    channel_unique_identifier = factories.make_unique_channel_id(channel_id=channel_identifier)
     message_identifier = random.randint(0, 2 ** 16)
     secret = factories.random_secret()
 
@@ -31,13 +32,13 @@ def test_delivered_message_must_clean_unordered_messages(chain_id):
     # element
     first_message = events.SendSecretReveal(
         recipient,
-        channel_identifier,
+        channel_unique_identifier,
         message_identifier,
         secret,
     )
     second_message = events.SendSecretReveal(
         recipient,
-        channel_identifier,
+        channel_unique_identifier,
         random.randint(0, 2 ** 16),
         secret,
     )

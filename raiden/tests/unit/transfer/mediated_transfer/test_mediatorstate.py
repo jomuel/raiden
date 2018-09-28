@@ -585,6 +585,7 @@ def test_events_for_revealsecret():
     )
 
     events = mediator.events_for_revealsecret(
+        factories.make_unique_channel_id_list(len(transfers_pair)),
         transfers_pair,
         our_address,
         pseudo_random_generator,
@@ -599,6 +600,7 @@ def test_events_for_revealsecret():
 
     last_pair.payee_state = 'payee_secret_revealed'
     events = mediator.events_for_revealsecret(
+        factories.make_unique_channel_id_list(len(transfers_pair)),
         transfers_pair,
         UNIT_SECRET,
         pseudo_random_generator,
@@ -612,6 +614,7 @@ def test_events_for_revealsecret():
     assert last_pair.payer_state == 'payer_secret_revealed'
 
     events = mediator.events_for_revealsecret(
+        factories.make_unique_channel_id_list(len(transfers_pair)),
         transfers_pair,
         our_address,
         pseudo_random_generator,
@@ -623,6 +626,7 @@ def test_events_for_revealsecret():
 
     first_pair.payee_state = 'payee_secret_revealed'
     events = mediator.events_for_revealsecret(
+        factories.make_unique_channel_id_list(len(transfers_pair)),
         transfers_pair,
         UNIT_SECRET,
         pseudo_random_generator,
@@ -647,6 +651,7 @@ def test_events_for_revealsecret_secret_unknown():
     )
 
     events = mediator.events_for_revealsecret(
+        factories.make_unique_channel_id_list(len(transfers_pair)),
         transfers_pair,
         ADDR,
         pseudo_random_generator,
@@ -679,6 +684,7 @@ def test_events_for_revealsecret_all_states():
         pair.payee_state = state
 
         events = mediator.events_for_revealsecret(
+            factories.make_unique_channel_id_list(len(transfers_pair)),
             transfers_pair,
             UNIT_SECRET,
             pseudo_random_generator,
@@ -1000,6 +1006,7 @@ def test_secret_learned():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
 
     iteration = mediator.secret_learned(
@@ -1012,6 +1019,7 @@ def test_secret_learned():
         channel1.partner_state.address,
         'payee_secret_revealed',
         False,
+        factories.make_unique_channel_id_list(len(iteration.new_state.transfers_pair)),
     )
     transfer_pair = iteration.new_state.transfers_pair[0]
 
@@ -1072,6 +1080,7 @@ def test_secret_learned_with_refund():
         channel_map,
         random.Random(),
         5,
+        [factories.make_unique_channel_id()],
     )
 
     assert not transition_result.events
@@ -1191,6 +1200,7 @@ def test_init_mediator():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
 
     assert isinstance(iteration.new_state, MediatorTransferState)
@@ -1266,6 +1276,7 @@ def test_no_valid_routes():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
     assert iteration.new_state is None
 
@@ -1366,6 +1377,7 @@ def test_lock_timeout_larger_than_settlement_period_must_be_ignored():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
 
     assert iteration.new_state is None
@@ -1445,6 +1457,7 @@ def test_do_not_claim_an_almost_expiring_lock_if_a_payment_didnt_occur():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
 
     attack_block_number = from_transfer.lock.expiration - attacked_channel.reveal_timeout
@@ -1470,6 +1483,7 @@ def test_do_not_claim_an_almost_expiring_lock_if_a_payment_didnt_occur():
             channel_map,
             pseudo_random_generator,
             new_block_number,
+            factories.make_unique_channel_id_list(len(new_iteration.new_state.transfers_pair)),
         )
 
         assert not any(
@@ -1489,6 +1503,7 @@ def test_do_not_claim_an_almost_expiring_lock_if_a_payment_didnt_occur():
         channel_map,
         pseudo_random_generator,
         attack_block_number,
+        factories.make_unique_channel_id_list(len(new_iteration.new_state.transfers_pair)),
     )
     assert not any(
         isinstance(event, ContractSendChannelClose)
@@ -1508,6 +1523,7 @@ def test_do_not_claim_an_almost_expiring_lock_if_a_payment_didnt_occur():
             channel_map,
             pseudo_random_generator,
             new_block_number,
+            factories.make_unique_channel_id_list(len(new_iteration.new_state.transfers_pair)),
         )
         assert not any(
             event
@@ -1708,6 +1724,7 @@ def test_mediate_transfer_with_maximum_pending_transfers_exceeded():
             channel_map,
             pseudo_random_generator,
             block_number,
+            [],
         ))
 
     # last iteration should have failed due to exceeded pending transfer limit
@@ -1778,6 +1795,7 @@ def test_mediator_lock_expired_with_new_block():
         channel_map,
         pseudo_random_generator,
         block_expiration_number,
+        factories.make_unique_channel_id_list(len(mediator_state.transfers_pair)),
     )
 
     assert iteration.events
@@ -1834,6 +1852,7 @@ def test_mediator_lock_expired_with_receive_lock_expired():
         channel_map,
         pseudo_random_generator,
         block_number,
+        [],
     )
 
     transfer = payer_transfer
@@ -1880,6 +1899,7 @@ def test_mediator_lock_expired_with_receive_lock_expired():
         channel_map,
         pseudo_random_generator,
         10,
+        factories.make_unique_channel_id_list(len(iteration.new_state.transfers_pair)),
     )
 
     assert must_contain_entry(iteration.events, SendProcessed, {})
